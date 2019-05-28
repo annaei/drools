@@ -1,17 +1,10 @@
 package org.drools.core.phreak;
 
 import org.drools.core.base.SalienceInteger;
-import org.drools.core.common.AgendaItem;
-import org.drools.core.common.DefaultAgenda;
-import org.drools.core.common.EventSupport;
-import org.drools.core.common.InternalAgenda;
-import org.drools.core.common.InternalWorkingMemory;
+import org.drools.core.common.*;
 import org.drools.core.conflict.PhreakConflictResolver;
 import org.drools.core.definitions.rule.impl.RuleImpl;
-import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.reteoo.PathMemory;
-import org.drools.core.reteoo.RuleTerminalNode;
-import org.drools.core.reteoo.RuleTerminalNodeLeftTuple;
+import org.drools.core.reteoo.*;
 import org.drools.core.spi.Activation;
 import org.drools.core.util.BinaryHeapQueue;
 import org.drools.core.util.LinkedList;
@@ -21,13 +14,16 @@ import org.kie.api.runtime.rule.AgendaFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 
 public class RuleExecutor {
 
     protected static final transient Logger   log               = LoggerFactory.getLogger(RuleExecutor.class);
-    private static final RuleNetworkEvaluator NETWORK_EVALUATOR = new RuleNetworkEvaluator();
-    private final PathMemory                  pmem;
+    public static final RuleNetworkEvaluator NETWORK_EVALUATOR = new RuleNetworkEvaluator();
+    public final PathMemory                  pmem;
     private final RuleAgendaItem              ruleAgendaItem;
     private final LeftTupleList               tupleList;
     private BinaryHeapQueue                   queue;
@@ -47,8 +43,40 @@ public class RuleExecutor {
         }
     }
 
-    public synchronized void evaluateNetwork(InternalWorkingMemory wm) {
-        NETWORK_EVALUATOR.evaluateNetwork(pmem, null, this, wm);
+    public void evaluateNetwork(InternalWorkingMemory wm) {
+        SegmentMemory[] smems = pmem.getSegmentMemories();
+
+        int smemIndex = 0;
+        SegmentMemory smem = smems[smemIndex]; // 0
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) smem.getRootNode();
+
+        Set<String> visitedRules;
+        if (pmem.getNetworkNode().getType() == NodeTypeEnums.QueryTerminalNode) {
+            visitedRules = new HashSet<String>();
+        } else {
+            visitedRules = Collections.emptySet();
+        }
+
+        LinkedList<StackEntry> stack = new LinkedList<StackEntry>();
+
+        NetworkNode node;
+        Memory nodeMem;
+        long bit = 1;
+        if (liaNode == smem.getTipNode()) {
+            // segment only has liaNode in it
+            // nothing is staged in the liaNode, so skip to next segment
+            smem = smems[++smemIndex]; // 1
+            node = smem.getRootNode();
+            nodeMem = smem.getNodeMemories().getFirst();
+        } else {
+            // lia is in shared segment, so point to next node
+            bit = 2;
+            node = liaNode.getSinkPropagator().getFirstLeftTupleSink();
+            nodeMem = smem.getNodeMemories().getFirst().getNext(); // skip the liaNode memory
+        }
+
+        LeftTupleSets srcTuples = smem.getStagedLeftTuples();
+        NETWORK_EVALUATOR.outerEval(liaNode, pmem, node, bit, nodeMem, smems, smemIndex, srcTuples, wm, stack, null, visitedRules, true, this);
         setDirty(false);
         wm.flushPropagations();
     }

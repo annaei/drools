@@ -23,11 +23,8 @@ import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.phreak.RuleAgendaItem;
 import org.drools.core.phreak.RuleExecutor;
-import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.reteoo.ObjectTypeConf;
-import org.drools.core.reteoo.PathMemory;
-import org.drools.core.reteoo.RuleTerminalNodeLeftTuple;
-import org.drools.core.reteoo.TerminalNode;
+import org.drools.core.phreak.StackEntry;
+import org.drools.core.reteoo.*;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.EntryPointId;
 import org.drools.core.rule.QueryImpl;
@@ -54,12 +51,7 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1188,7 +1180,7 @@ public class DefaultAgenda
                                             String ruleName,
                                             long processInstanceId) {
 
-        RuleFlowGroup systemRuleFlowGroup = this.getRuleFlowGroup( ruleflowGroupName );
+        RuleFlowGroup systemRuleFlowGroup = (RuleFlowGroup) getAgendaGroup(ruleflowGroupName);
 
         Match[] matches = ((InternalAgendaGroup)systemRuleFlowGroup).getActivations();
         for ( Match match : matches ) {
@@ -1196,7 +1188,43 @@ public class DefaultAgenda
             if ( act.isRuleAgendaItem() ) {
                 // The lazy RuleAgendaItem must be fully evaluated, to see if there is a rule match
                 RuleAgendaItem ruleAgendaItem = (RuleAgendaItem) act;
-                ruleAgendaItem.getRuleExecutor().evaluateNetwork(workingMemory);
+                //Selection start
+                SegmentMemory[] smems = ruleAgendaItem.getRuleExecutor().pmem.getSegmentMemories();
+
+                int smemIndex = 0;
+                SegmentMemory smem = smems[smemIndex]; // 0
+                LeftInputAdapterNode liaNode = (LeftInputAdapterNode) smem.getRootNode();
+
+                Set<String> visitedRules;
+                if (ruleAgendaItem.getRuleExecutor().pmem.getNetworkNode().getType() == NodeTypeEnums.QueryTerminalNode) {
+                    visitedRules = new HashSet<String>();
+                } else {
+                    visitedRules = Collections.emptySet();
+                }
+
+                org.drools.core.util.LinkedList<StackEntry> stack = new org.drools.core.util.LinkedList<StackEntry>();
+
+                NetworkNode node;
+                Memory nodeMem;
+                long bit = 1;
+                if (liaNode == smem.getTipNode()) {
+                    // segment only has liaNode in it
+                    // nothing is staged in the liaNode, so skip to next segment
+                    smem = smems[++smemIndex]; // 1
+                    node = smem.getRootNode();
+                    nodeMem = smem.getNodeMemories().getFirst();
+                } else {
+                    // lia is in shared segment, so point to next node
+                    bit = 2;
+                    node = liaNode.getSinkPropagator().getFirstLeftTupleSink();
+                    nodeMem = smem.getNodeMemories().getFirst().getNext(); // skip the liaNode memory
+                }
+
+                LeftTupleSets srcTuples = smem.getStagedLeftTuples();
+                RuleExecutor.NETWORK_EVALUATOR.outerEval(liaNode, ruleAgendaItem.getRuleExecutor().pmem, node, bit, nodeMem, smems, smemIndex, srcTuples, workingMemory, stack, null, visitedRules, true, ruleAgendaItem.getRuleExecutor());
+                ruleAgendaItem.getRuleExecutor().setDirty(false);
+                workingMemory.flushPropagations();
+                //Selection end
                 LeftTupleList list = ruleAgendaItem.getRuleExecutor().getLeftTupleList();
                 for (RuleTerminalNodeLeftTuple lt = (RuleTerminalNodeLeftTuple) list.getFirst(); lt != null; lt = (RuleTerminalNodeLeftTuple) lt.getNext()) {
                     if ( ruleName.equals( lt.getRule().getName() ) ) {

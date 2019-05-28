@@ -112,9 +112,6 @@ public class RuleNetworkEvaluator {
         }
 
         LeftTupleSets srcTuples = smem.getStagedLeftTuples();
-        if (log.isTraceEnabled()) {
-            log.trace("Rule[name={}] segments={} {}", ((TerminalNode)pmem.getNetworkNode()).getRule().getName(), smems.length, srcTuples.toStringSizes());
-        }
         outerEval(liaNode, pmem, node, bit, nodeMem, smems, smemIndex, srcTuples, wm, stack, outerStack, visitedRules, true, executor);
     }
 
