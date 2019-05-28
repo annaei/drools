@@ -1188,9 +1188,7 @@ public class DefaultAgenda
             if ( act.isRuleAgendaItem() ) {
                 // The lazy RuleAgendaItem must be fully evaluated, to see if there is a rule match
                 RuleAgendaItem ruleAgendaItem = (RuleAgendaItem) act;
-                //Selection start
-                evaluateNetwork(ruleAgendaItem);
-                //Selection end
+                evaluateNetwork(ruleAgendaItem); // ruleAgendaItem.getRuleExecutor().evaluateNetwork(workingMemory);
                 LeftTupleList list = ruleAgendaItem.getRuleExecutor().getLeftTupleList();
                 for (RuleTerminalNodeLeftTuple lt = (RuleTerminalNodeLeftTuple) list.getFirst(); lt != null; lt = (RuleTerminalNodeLeftTuple) lt.getNext()) {
                     if ( ruleName.equals( lt.getRule().getName() ) ) {
@@ -1211,7 +1209,7 @@ public class DefaultAgenda
         return false;
     }
 
-    //TODO move to 
+    //TODO move to RuleExecutor via target variable ruleAgendaItem.getRuleExecutor();
     private void evaluateNetwork(RuleAgendaItem ruleAgendaItem) {
         SegmentMemory[] smems = ruleAgendaItem.getRuleExecutor().pmem.getSegmentMemories();
 
