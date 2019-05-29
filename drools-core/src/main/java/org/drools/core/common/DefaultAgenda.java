@@ -1009,24 +1009,8 @@ public class DefaultAgenda
 
                 org.drools.core.util.LinkedList<StackEntry> stack = new org.drools.core.util.LinkedList<StackEntry>();
 
-                NetworkNode node;
-                Memory nodeMem;
-                long bit = 1;
-                if (liaNode == smem.getTipNode()) {
-                    // segment only has liaNode in it
-                    // nothing is staged in the liaNode, so skip to next segment
-                    smem = smems[++smemIndex]; // 1
-                    node = smem.getRootNode();
-                    nodeMem = smem.getNodeMemories().getFirst();
-                } else {
-                    // lia is in shared segment, so point to next node
-                    bit = 2;
-                    node = liaNode.getSinkPropagator().getFirstLeftTupleSink();
-                    nodeMem = smem.getNodeMemories().getFirst().getNext(); // skip the liaNode memory
-                }
 
                 LeftTupleSets srcTuples = smem.getStagedLeftTuples();
-                RuleExecutor.NETWORK_EVALUATOR.outerEval(liaNode, ruleExecutor.pmem, node, bit, nodeMem, smems, smemIndex, srcTuples, this.workingMemory, stack, null, visitedRules, true, ruleExecutor);
                 ruleExecutor.setDirty(false);
                 this.workingMemory.flushPropagations();
             }
