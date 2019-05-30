@@ -1312,6 +1312,9 @@ public class DefaultAgenda
         if( this.halt.compareAndSet( true, false ) ) { // if this was false already means someone else is firing rules already
                 int localFireCount = 0;
                 do {
+
+                    //Extract the functionality between A and B into its own method: fireNextItem
+                    //A
                     boolean tryagain;
                         do {
                             evaluateEagerList();
@@ -1348,6 +1351,8 @@ public class DefaultAgenda
                             }
                         } while ( tryagain );
                     fireCount += localFireCount;
+                    //B
+
                     this.workingMemory.flushPropagations();
                 } while ( isFiring() && localFireCount != 0 && (fireLimit == -1 || (fireCount < fireLimit)) );
                 if ( this.focusStack.size() == 1 && getMainAgendaGroup().isEmpty() ) {
