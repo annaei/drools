@@ -992,13 +992,10 @@ public class DefaultAgenda
     }
 
     public void evaluateEagerList() {
-        synchronized (eager) {
             while ( !eager.isEmpty() ) {
                 RuleAgendaItem item = eager.removeFirst();
                 evaluateQueriesForRule(item);
-                RuleExecutor ruleExecutor = item.getRuleExecutor();
             }
-        }
     }
 
     private void evaluateQueriesForRule(RuleAgendaItem item) {
@@ -1013,7 +1010,7 @@ public class DefaultAgenda
         }
     }
 
-    //move to RuleExecutor.java, invoke moved method on the instance from queryAgendaItem.getRuleExecutor()
+    //TASK: move evaluateNetwork to RuleExecutor.java, invoke moved method on the instance returned by queryAgendaItem.getRuleExecutor()
     private void evaluateNetwork(RuleAgendaItem queryAgendaItem) {
         SegmentMemory[] smems = queryAgendaItem.getRuleExecutor().pmem.getSegmentMemories();
 
