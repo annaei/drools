@@ -23,7 +23,6 @@ import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.phreak.RuleAgendaItem;
 import org.drools.core.phreak.RuleExecutor;
-import org.drools.core.phreak.StackEntry;
 import org.drools.core.reteoo.*;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.EntryPointId;
@@ -1004,49 +1003,10 @@ public class DefaultAgenda
             for (QueryImpl query : rule.getDependingQueries()) {
                 RuleAgendaItem queryAgendaItem = queries.remove(query);
                 if (queryAgendaItem != null) {
-                    evaluateNetwork(queryAgendaItem);
+                    queryAgendaItem.getRuleExecutor().evaluateNetwork(this.workingMemory);
                 }
             }
         }
-    }
-
-    //TASK: move evaluateNetwork to RuleExecutor.java, invoke moved method on the instance returned by queryAgendaItem.getRuleExecutor()
-    private void evaluateNetwork(final RuleAgendaItem queryAgendaItem) {
-        SegmentMemory[] smems = queryAgendaItem.getRuleExecutor().pmem.getSegmentMemories();
-
-        int smemIndex = 0;
-        SegmentMemory smem = smems[smemIndex]; // 0
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) smem.getRootNode();
-
-        Set<String> visitedRules;
-        if (queryAgendaItem.getRuleExecutor().pmem.getNetworkNode().getType() == NodeTypeEnums.QueryTerminalNode) {
-            visitedRules = new HashSet<String>();
-        } else {
-            visitedRules = Collections.emptySet();
-        }
-
-        org.drools.core.util.LinkedList<StackEntry> stack = new org.drools.core.util.LinkedList<StackEntry>();
-
-        NetworkNode node;
-        Memory nodeMem;
-        long bit = 1;
-        if (liaNode == smem.getTipNode()) {
-            // segment only has liaNode in it
-            // nothing is staged in the liaNode, so skip to next segment
-            smem = smems[++smemIndex]; // 1
-            node = smem.getRootNode();
-            nodeMem = smem.getNodeMemories().getFirst();
-        } else {
-            // lia is in shared segment, so point to next node
-            bit = 2;
-            node = liaNode.getSinkPropagator().getFirstLeftTupleSink();
-            nodeMem = smem.getNodeMemories().getFirst().getNext(); // skip the liaNode memory
-        }
-
-        LeftTupleSets srcTuples = smem.getStagedLeftTuples();
-        RuleExecutor.NETWORK_EVALUATOR.outerEval(liaNode, queryAgendaItem.getRuleExecutor().pmem, node, bit, nodeMem, smems, smemIndex, srcTuples, this.workingMemory, stack, null, visitedRules, true, queryAgendaItem.getRuleExecutor());
-        queryAgendaItem.getRuleExecutor().setDirty(false);
-        this.workingMemory.flushPropagations();
     }
 
     public int sizeOfRuleFlowGroup(String name) {

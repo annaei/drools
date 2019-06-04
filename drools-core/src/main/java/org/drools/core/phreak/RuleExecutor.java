@@ -22,8 +22,8 @@ import java.util.Set;
 public class RuleExecutor {
 
     protected static final transient Logger   log               = LoggerFactory.getLogger(RuleExecutor.class);
-    public static final RuleNetworkEvaluator NETWORK_EVALUATOR = new RuleNetworkEvaluator();
-    public final PathMemory                  pmem;
+    private static final RuleNetworkEvaluator NETWORK_EVALUATOR = new RuleNetworkEvaluator();
+    private final PathMemory                  pmem;
     private final RuleAgendaItem              ruleAgendaItem;
     private final LeftTupleList               tupleList;
     private BinaryHeapQueue                   queue;
@@ -292,6 +292,44 @@ public class RuleExecutor {
 
     public boolean isDeclarativeAgendaEnabled() {
         return this.declarativeAgendaEnabled;
+    }
+
+    public void evaluateNetwork(InternalWorkingMemory workingMemory) {
+        SegmentMemory[] smems = pmem.getSegmentMemories();
+
+        int smemIndex = 0;
+        SegmentMemory smem = smems[smemIndex]; // 0
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) smem.getRootNode();
+
+        Set<String> visitedRules;
+        if (pmem.getNetworkNode().getType() == NodeTypeEnums.QueryTerminalNode) {
+            visitedRules = new HashSet<String>();
+        } else {
+            visitedRules = Collections.emptySet();
+        }
+
+        LinkedList<StackEntry> stack = new LinkedList<StackEntry>();
+
+        NetworkNode node;
+        Memory nodeMem;
+        long bit = 1;
+        if (liaNode == smem.getTipNode()) {
+            // segment only has liaNode in it
+            // nothing is staged in the liaNode, so skip to next segment
+            smem = smems[++smemIndex]; // 1
+            node = smem.getRootNode();
+            nodeMem = smem.getNodeMemories().getFirst();
+        } else {
+            // lia is in shared segment, so point to next node
+            bit = 2;
+            node = liaNode.getSinkPropagator().getFirstLeftTupleSink();
+            nodeMem = smem.getNodeMemories().getFirst().getNext(); // skip the liaNode memory
+        }
+
+        LeftTupleSets srcTuples = smem.getStagedLeftTuples();
+        NETWORK_EVALUATOR.outerEval(liaNode, pmem, node, bit, nodeMem, smems, smemIndex, srcTuples, workingMemory, stack, null, visitedRules, true, this);
+        setDirty(false);
+        workingMemory.flushPropagations();
     }
 
     public static class SalienceComparator implements Comparator {
