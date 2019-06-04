@@ -1011,7 +1011,7 @@ public class DefaultAgenda
     }
 
     //TASK: move evaluateNetwork to RuleExecutor.java, invoke moved method on the instance returned by queryAgendaItem.getRuleExecutor()
-    private void evaluateNetwork(RuleAgendaItem queryAgendaItem) {
+    private void evaluateNetwork(final RuleAgendaItem queryAgendaItem) {
         SegmentMemory[] smems = queryAgendaItem.getRuleExecutor().pmem.getSegmentMemories();
 
         int smemIndex = 0;
